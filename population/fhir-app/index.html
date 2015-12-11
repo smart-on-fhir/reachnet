@@ -25,8 +25,8 @@
     		patients.filter(function (p) {
     			return p.activeMeds;
     		}).sort(function (p1, p2) {
-    			if (p1.activeMeds !== p2.activeMeds) return p1.activeMeds < p2.activeMeds;
-    			else return p1.name > p2.name;
+    			if (p1.activeMeds !== p2.activeMeds) return p2.activeMeds - p1.activeMeds;
+    			else return (p1.name < p2.name)?-1:1;
     		}).forEach(function(p) {
     			 out += p.name + " - " + p.activeMeds + " active medications<br/>\n";
     		});
