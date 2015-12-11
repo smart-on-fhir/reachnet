@@ -9,10 +9,10 @@ To install HTTP-Server, use the following command (in the console):
 npm install http-server -g
 ```
 
-This demo contains three different sample apps. The “patient” app
+This demo contains three different sample apps. The `patient` app
 demonstrates the basic structure of a single-patient SMART app. The
-“population” SMART app illustrates population-level FHIR queries.
-Finally, the “summary” SMART app provides a working example of
+`population` SMART app illustrates population-level FHIR queries.
+Finally, the `summary` SMART app provides a working example of
 an app that displays a patient summary view.
 
 To run a sample app, start HTTP-Server in the root directory of the app
