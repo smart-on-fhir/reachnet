@@ -17,7 +17,7 @@ an app that displays a patient summary view.
 
 To run a sample app, start HTTP-Server in the root directory of the app
 (For convenience, we have provided shell scripts for you to use named
-runserver.sh and runserver.bat. Use the one appropriate for your OS).
+`runserver.sh` and `runserver.bat`. Use the one appropriate for your OS).
 
 Now open a browser window and launch the app against one of the available
 SMART-on-FHIR servers. Here is an example URL to use for launching an app
