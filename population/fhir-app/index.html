@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html>
+ <head>
+    <script src="fhir-client.js"></script>
+    <!-- https://rawgithub.com/smart-on-fhir/client-js/master/dist/fhir-client.js -->
+ </head>
+ <body>
+    <h3>Patients with active medications</h3>	
+    <div id="results">loading...</div>
+    <script type="text/javascript">
+
+    	var patientsData = [];
+    
+        function getName (patient) {
+        	var name = patient.name;
+            if (name && name.length > 0) {
+                return name[0].given.join(" ") +" "+ name[0].family.join(" ");
+            } else {
+                return "deidentified patient";
+            }
+        }
+    
+    	function printDataSet (patients) {
+    		var out = "";
+    		patients.filter(function (p) {
+    			return p.activeMeds;
+    		}).sort(function (p1, p2) {
+    			if (p1.activeMeds !== p2.activeMeds) return p1.activeMeds < p2.activeMeds;
+    			else return p1.name > p2.name;
+    		}).forEach(function(p) {
+    			 out += p.name + " - " + p.activeMeds + " active medications<br/>\n";
+    		});
+    		document.getElementById('results').innerHTML = out;
+    	}
+
+        FHIR.oauth2.ready(function(smart){
+            var api = smart.api;
+
+			var queue = [function() {printDataSet(patientsData)}];
+			var length;
+			
+			function next() {
+				progress = Math.round(100 - queue.length*100.0/length);
+				document.getElementById('results').innerHTML = "progress: " + progress + "%";
+				(queue.pop())();
+			}
+
+            function processPatient (patient) {
+                api.fetchAll({type: "MedicationOrder", query: {patient: patient.id, status: "active"}})
+            	   .then(function(meds) {
+            	        patientsData.push ({
+            	            name: getName(patient),
+            	       	    activeMeds: meds.length
+            	        });
+            	        next();
+            	    });
+            }
+
+            api.fetchAll({type: "Patient"}).then(function(patients) {
+            	patients.forEach(function(patient) {
+            	    queue.push(function() {processPatient (patient)});
+                });
+                length = queue.length;
+                next();
+            });
+        });
+
+    </script>
+ </body>
+</html>

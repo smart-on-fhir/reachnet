@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+<script
+	src='https://rawgit.com/smart-on-fhir/client-js/master/dist/fhir-client.js'></script>
+
+
+<script src='http://code.jquery.com/jquery-2.1.4.min.js'></script>
+<link rel="stylesheet" href="Bootstrap/css/bootstrap.min.css">
+<script src='Bootstrap/js/bootstrap.min.js'></script>
+<link rel="stylesheet"
+	href="https://maxcdn.bootstrapcdn.com/font-awesome/4.5.0/css/font-awesome.min.css">
+<script
+	src='https://cdnjs.cloudflare.com/ajax/libs/underscore.js/1.8.3/underscore-min.js'></script>
+
+<script>
+FHIR.oauth2.ready(function(smart){
+	// Create a FHIR client (server URL, patient id in `demo`)
+	var pt = smart.patient;
+	window.patient = pt;
+	// Create a patient banner by fetching + rendering demographics
+	pt.read().then(
+			function(p) {
+				var name = p.name[0].given.join(" ") + " "
+						+ p.name[0].family.join(" ") + " [ MRN: "
+						+ p.identifier[0].value + "]";
+
+				$("#patient_name").text(name);
+				$("#birthDate").text(p.birthDate);
+				var currentDate = new Date();
+				var birthDate = new Date(p.birthDate);
+				var age = currentDate.getYear() - birthDate.getYear();
+				$("#userAge").html(age);
+				var address = "";
+				if (p.address.length > 0) {
+					var lineAddress = "";
+					var lineAddressLength = p.address[0].line.length;
+					var addressArray = p.address[0];
+					for (var index = 0; index < lineAddressLength; index++) {
+						lineAddress = lineAddress + "<br>"
+								+ addressArray.line[index];
+					}
+					lineAddress = lineAddress.trim();
+					lineAddress = lineAddress.replace(/^<br>/, "");
+				}
+				address = lineAddress + "<br>" + addressArray.city + ", "
+						+ addressArray.state + ", " + addressArray.postalCode;
+				$("#address").html(address);
+				var gender = p.gender;
+				if (gender == "female") {
+					$("#gender-icon").attr("class", "fa fa-venus");
+					$("#gender").html("Female");
+				} else {
+					$("#gender-icon").attr("class", "fa fa-mars");
+					$("#gender").html("Male");
+
+				}
+			});
+
+	// A more advanced query: search for active Prescriptions, including med details
+	pt.api
+			.search({
+				type : "MedicationOrder"
+			})
+			.then(
+					function(prescriptions) {
+						if (prescriptions.data.entry.length > 0) {
+							$("#no-medication").hide();
+						}
+
+						prescriptions.data.entry
+								.forEach(function(prescription) {
+									var meds = prescription.resource.medicationCodeableConcept.coding;
+									meds
+											.forEach(function(med) {
+												var row = $("<li class='list-group-item'> "
+														+ med.display + "</li>");
+												$("#med_list").append(row);
+											});
+								});
+					});
+	// Search for the current patient's Observations
+	pt.api.search({
+		type : 'Observation'
+	}).then(
+			function(observations) {
+				if (observations.data.entry.length > 0) {
+					$("#no-observation").hide();
+					$("#observation-table").show();
+
+				}
+				observations.data.entry.forEach(function(observation) {
+					var value = "";
+					var unit = "";
+					if (observation.resource.valueQuantity != undefined) {
+						value = observation.resource.valueQuantity.value;
+						unit = observation.resource.valueQuantity.unit;
+					}
+					var row = $("<tr> <td>"
+							+ observation.resource.code.coding[0].display
+							+ " </td> <td>  " + value + "</td><td>" + unit
+							+ "</td><td>"
+							+ observation.resource.effectiveDateTime
+							+ " </td> </tr>");
+					$("#obs_list").append(row);
+					;
+				});
+			});
+
+	smart.patient.api.search({
+		type : 'Condition'
+	}).then(
+			function(conditions) {
+				if (conditions.data.entry.length > 0) {
+					$("#no-condition").hide();
+				}
+
+				conditions.data.entry.forEach(function(condition) {
+					var cons = condition.resource.code.coding;
+					cons.forEach(function(con) {
+						var row = $("<li class='list-group-item'> "
+								+ con.display + "</li>");
+						$("#con_list").append(row);
+					});
+				});
+			});
+
+	pt.api
+			.search({
+				type : 'AllergyIntolerance'
+			})
+			.then(
+					function(allergies) {
+						if (allergies.data.entry.length > 0) {
+							$("#no-allergy").hide();
+							$("#allergy-table").show();
+						}
+						allergies.data.entry
+								.forEach(function(allergy) {
+									var allergyDiv = $(allergy.resource.text.div);
+									var row = $("<tr> <td>"
+											+ allergyDiv.html()
+											+ " </td> <td>  "
+											+ +allergy.resource.recordedDate
+											+ "</td><td>"
+											+ allergy.resource.reaction[0].manifestation[0].text
+											+ "</td><td>"
+											+ allergy.resource.reaction[0].severity
+											+ " </td> </tr>");
+									$("#allergy_list").append(row);
+									;
+								});
+					});
+});
+</script>
+</head>
+
+<body>
+
+	<div class="container-fluid">
+
+		<div class="row">
+			<div class="col-sm-6 col-sm-offset-3">
+				<div class="well well-sm">
+					<div class="row">
+						<div class="col-sm-4">
+							<img src="Images/user.png" class="img-rounded">
+						</div>
+						<div class="col-sm-8">
+							<h4 id="patient_name"></h4>
+							<div class="row">
+								<div class="col-sm-1">
+									<i id="gender-icon" class=""> </i>
+								</div>
+								<div class="col-sm-9">
+									<span id="gender"></span>
+								</div>
+							</div>
+							<br>
+							<div class="row">
+								<div class="col-sm-1">
+									<i class="fa fa-birthday-cake"> </i>
+								</div>
+								<div class="col-sm-9">
+									<span id="birthDate"></span> / <span id="userAge"> years</span>
+								</div>
+							</div>
+							<br>
+							<div class="row">
+								<div class="col-sm-1">
+									<i class="fa fa-home"> </i>
+								</div>
+								<div class="col-sm-9">
+									<span id="address"></span>
+								</div>
+							</div>
+
+						</div>
+					</div>
+				</div>
+			</div>
+		</div>
+	</div>
+
+
+
+	<div class="container-fluid">
+		<div class="row">
+			<div class="col-sm-5 col-sm-offset-1">
+				<div class="panel panel-primary">
+					<div class="panel-heading">
+						<strong>Medications</strong>
+					</div>
+					<div class="panel-body">
+						<h3 id="no-medication">No Data Found</h3>
+						<ul class="list-group" id="med_list">
+
+						</ul>
+					</div>
+				</div>
+			</div>
+			<div class="col-sm-5">
+				<div class="panel panel-primary">
+					<div class="panel-heading">
+						<strong>Current Conditions</strong>
+					</div>
+					<div class="panel-body">
+						<h3 id="no-condition">No Data Found</h3>
+						<ul class="list-group" id="con_list">
+
+						</ul>
+					</div>
+				</div>
+
+
+			</div>
+		</div>
+	</div>
+
+
+
+
+	<div class="container-fluid">
+		<div class="row">
+			<div class="col-sm-10 col-sm-offset-1">
+				<div class="panel panel-primary">
+					<div class="panel-heading">
+						<strong>Current Observations</strong>
+					</div>
+					<div class="panel-body" style="max-height: 500px; overflow: auto">
+						<h3 id="no-observation">No Data Found</h3>
+						<table class="table table-responsive" style="display: none"
+							id="observation-table">
+							<thead>
+								<th>Observation</th>
+								<th>Value</th>
+								<th>Unit</th>
+								<th>On Date</th>
+							</thead>
+							<tbody id="obs_list">
+							</tbody>
+						</table>
+
+					</div>
+				</div>
+
+			</div>
+		</div>
+	</div>
+
+	<p></p>
+
+	<div class="container-fluid">
+		<div class="row">
+			<div class="col-sm-10 col-sm-offset-1">
+				<div class="panel panel-danger">
+					<div class="panel-heading">
+						<strong>Allergies</strong>
+					</div>
+					<div class="panel-body">
+						<h3 id="no-allergy">No Data Found</h3>
+						<table class="table table-responsive" style="display: none"
+							id="allergy-table">
+							<thead>
+								<th>Name</th>
+								<th>Recorded Date</th>
+								<th>Reaction</th>
+								<th>Severity</th>
+							</thead>
+							<tbody id="allergy_list">
+							</tbody>
+						</table>
+
+					</div>
+				</div>
+
+			</div>
+		</div>
+	</div>
+
+</body>
+
+<script>
+	function getDataArrayByCode(observations, code) {
+		var dataArray = new Array();
+		var entries = observations.data.entry;
+		$.each(observations.data.entry, function(entryIndex, entryValue) {
+			var entryCode = entryValue.resource.code.coding[0].code;
+			if (entryCode == code) {
+				dataArray.push(entryValue.resource.valueQuantity[0].value);
+			}
+		});
+		return dataArray;
+	}
+</script>
+
+</html>
