@@ -76,14 +76,9 @@ return /******/ (function(modules) { // webpackBootstrap
 	                contentType: "application/json",
 	                data: args.data || args.params
 	            };
-	            console.log(JSON.stringify(opts));
 	            jquery.ajax(opts)
-	                .done(function(data, status, xhr) {
-	                	ret.resolve({data: data, status: status, headers: xhr.getResponseHeader, config: args});
-	                })
-	                .fail(function(err) {
-	                	ret.reject({error: err, data: err, config: args});
-	                });
+	                .done(function(data, status, xhr) {ret.resolve({data: data, status: status, headers: xhr.getResponseHeader, config: args});})
+	                .fail(function(err) {ret.reject({error: err, data: err, config: args});});
 	            return ret.promise();
 	        }
 	    };
@@ -290,7 +285,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	  exports.mergeLists = mergeLists;
 
 	  var absoluteUrl = function(baseUrl, ref) {
-	    if (ref.slice(ref, baseUrl.length + 1) !== baseUrl + "/") {
+	    if (!ref.match(/https?:\/\/./)) {
 	      return baseUrl + "/" + ref;
 	    } else {
 	      return ref;
@@ -364,164 +359,84 @@ return /******/ (function(modules) { // webpackBootstrap
 /***/ function(module, exports, __webpack_require__) {
 
 	/* WEBPACK VAR INJECTION */(function(module) {/*!
-
 	 * @name JavaScript/NodeJS Merge v1.1.3
-
 	 * @author yeikos
-
 	 * @repository https://github.com/yeikos/js.merge
 
-
-
 	 * Copyright 2014 yeikos - MIT license
-
 	 * https://raw.github.com/yeikos/js.merge/master/LICENSE
-
 	 */
-
-
 
 	;(function(isNode) {
 
-
-
 		function merge() {
 
-
-
 			var items = Array.prototype.slice.call(arguments),
-
 				result = items.shift(),
-
 				deep = (result === true),
-
 				size = items.length,
-
 				item, index, key;
-
-
 
 			if (deep || typeOf(result) !== 'object')
 
-
-
 				result = {};
-
-
 
 			for (index=0;index<size;++index)
 
-
-
 				if (typeOf(item = items[index]) === 'object')
-
-
 
 					for (key in item)
 
-
-
 						result[key] = deep ? clone(item[key]) : item[key];
-
-
 
 			return result;
 
-
-
 		}
-
-
 
 		function clone(input) {
 
-
-
 			var output = input,
-
 				type = typeOf(input),
-
 				index, size;
-
-
 
 			if (type === 'array') {
 
-
-
 				output = [];
-
 				size = input.length;
-
-
 
 				for (index=0;index<size;++index)
 
-
-
 					output[index] = clone(input[index]);
-
-
 
 			} else if (type === 'object') {
 
-
-
 				output = {};
-
-
 
 				for (index in input)
 
-
-
 					output[index] = clone(input[index]);
-
-
 
 			}
 
-
-
 			return output;
 
-
-
 		}
-
-
 
 		function typeOf(input) {
 
-
-
 			return ({}).toString.call(input).match(/\s([\w]+)/)[1].toLowerCase();
 
-
-
 		}
-
-
 
 		if (isNode) {
 
-
-
 			module.exports = merge;
-
-
 
 		} else {
 
-
-
 			window.merge = merge;
 
-
-
 		}
-
-
 
 	})(typeof module === 'object' && module && typeof module.exports === 'object' && module.exports);
 	/* WEBPACK VAR INJECTION */}.call(exports, __webpack_require__(4)(module)))
@@ -531,25 +446,15 @@ return /******/ (function(modules) { // webpackBootstrap
 /***/ function(module, exports) {
 
 	module.exports = function(module) {
-
 		if(!module.webpackPolyfill) {
-
 			module.deprecate = function() {};
-
 			module.paths = [];
-
 			// module.parent = undefined by default
-
 			module.children = [];
-
 			module.webpackPolyfill = 1;
-
 		}
-
 		return module;
-
 	}
-
 
 
 /***/ },
@@ -1235,127 +1140,135 @@ return /******/ (function(modules) { // webpackBootstrap
 /***/ function(module, exports) {
 
 	(function() {
-
 	    var fhirAPI;
-
 	    var adapter;
 
-
-
 	    function getNext (bundle, process) {
-
 	        var i;
-
 	        var d = bundle.data.entry || [];
-
 	        var entries = [];
-
 	        for (i = 0; i < d.length; i++) {
-
 	            entries.push(d[i].resource);
-
 	        }
-
 	        process(entries);
-
 	        var def = adapter.defer();
-
 	        fhirAPI.nextPage({bundle:bundle.data}).then(function (r) {
-
 	            getNext(r, process).then(function (t) {
-
 	                def.resolve();
-
 	            });
-
 	        }, function(err) {def.resolve()});
-
 	        return def.promise;
-
 	    }
-
 	    
-
 	    function drain (searchParams, process, done, fail) {
-
 	        var ret = adapter.defer();
-
 	        
-
 	        fhirAPI.search(searchParams).then(function(data){
-
 	            getNext(data, process).then(function() {
-
 	                done();
-
 	            }, function(err) {
-
 	                fail(err);
-
 	            });
-
+	        }, function(err) {
+	            fail(err);
 	        });
-
+	    };
+	    
+	    function fetchAll (searchParams){
+	        var ret = adapter.defer();
+	        var results = [];
+	        
+	        drain(
+	            searchParams,
+	            function(entries) {
+	                entries.forEach(function(entry) {
+	                    results.push(entry);
+	                });
+	            },
+	            function () {
+	                ret.resolve(results);
+	            },
+	            function (err) {
+	                ret.reject(err);
+	            }
+	        );
+	          
+	        return ret.promise;
 	    };
 
-	    
-
-	    function fetchAll (searchParams){
-
+	    function fetchAllWithReferences (searchParams, resolveParams) {
 	        var ret = adapter.defer();
+	          
+	        fhirAPI.search(searchParams)  // TODO: THIS IS NOT CORRECT (need fetchAll, but it does not return a bundle yet)
+	            .then(function(results){
 
-	        var results = [];
+	                var resolvedReferences = {};
 
-	        
+	                var queue = [function() {
+	                    var entries = results.data.entry || [];
+	                    var res = entries.map(function(r){
+	                        return r.resource;
+	                    });
+	                    ret.resolve(res,resolvedReferences);
+	                }];
+	                
+	                function enqueue (bundle,resource,reference) {
+	                  queue.push(function() {
+	                    resolveReference(bundle,resource,reference);
+	                  });
+	                }
 
-	        drain(
+	                function next() {
+	                  (queue.pop())();
+	                }
 
-	            searchParams,
+	                function resolveReference (bundle,resource,reference) {
+	                    var referenceID = reference.reference;
+	                    fhirAPI.resolve({'bundle': bundle, 'resource': resource, 'reference':reference}).then(function(res){
+	                      var referencedObject = res.data || res.content;
+	                      resolvedReferences[referenceID] = referencedObject;
+	                      next();
+	                    });
+	                }
 
-	            function(entries) {
+	                var bundle = results.data;
 
-	                entries.forEach(function(entry) {
-
-	                    results.push(entry);
-
+	                bundle.entry && bundle.entry.forEach(function(element){
+	                  var resource = element.resource;
+	                  var type = resource.resourceType;
+	                  resolveParams && resolveParams.forEach(function(resolveParam){
+	                    var param = resolveParam.split('.');
+	                    var targetType = param[0];
+	                    var targetElement = param[1];
+	                    var reference = resource[targetElement];
+	                    if (type === targetType && reference) {
+	                      var referenceID = reference.reference;
+	                      if (!resolvedReferences[referenceID]) {
+	                        enqueue(bundle,resource,reference);
+	                      }
+	                    }
+	                  });
 	                });
 
-	            },
+	                next();
 
-	            function () {
-
-	                ret.resolve(results);
-
-	            }
-
-	        );
-
+	            }, function(){
+	                ret.reject("Could not fetch search results");
+	            });
 	          
-
 	        return ret.promise;
-
 	    };
 
-	    
-
 	    function decorate (client, newAdapter) {
-
 	        fhirAPI = client;
-
 	        adapter = newAdapter;
-
 	        client["drain"] = drain;
-
 	        client["fetchAll"] = fetchAll;
-
+	        client["fetchAllWithReferences"] = fetchAllWithReferences;
 	        return client;
-
 	    }
-
 	    
-
 	    module.exports = decorate;
-
 	}).call(this);
 
 /***/ }
@@ -16929,26 +16842,15 @@ module.exports = function jwa(algorithm) {
 },{"../../lib/jqFhir.js":1,"../client/entry":48,"_process":22,"jquery":39,"jsdom":2}],45:[function(require,module,exports){
 var adapter;
 
-
-
 var Adapter = module.exports =  {debug: true}
 
-
-
 Adapter.set = function (newAdapter) {
-
     adapter = newAdapter;
-
 };
-
-
 
 Adapter.get = function () {
-
     return adapter;
-
 };
-
 
 },{}],46:[function(require,module,exports){
 (function (process){
@@ -16971,7 +16873,8 @@ function urlParam(p, forceArray) {
   for(var i=0; i<data.length; i++) {
     var item = data[i].split("=");
     if (item[0] === p) {
-      result.push(decodeURIComponent(item[1]));
+      var res = item[1].replace(/\+/g, '%20');
+      result.push(decodeURIComponent(res));
     }
   }
 
@@ -17035,15 +16938,25 @@ function completeCodeFlow(params){
     window.history.replaceState({}, "", window.location.toString().replace(window.location.search, ""));
   }
 
+  var data = {
+      code: params.code,
+      grant_type: 'authorization_code',
+      redirect_uri: state.client.redirect_uri
+  };
+
+  var headers = {};
+
+  if (state.client.secret) {
+    headers['Authorization'] = 'Basic ' + btoa(state.client.client_id + ':' + state.client.secret);
+  } else {
+    data['client_id'] = state.client.client_id;
+  }
+
   Adapter.get().http({
     method: 'POST',
     url: state.provider.oauth2.token_uri,
-    data: {
-      code: params.code,
-      grant_type: 'authorization_code',
-      redirect_uri: state.client.redirect_uri,
-      client_id: state.client.client_id
-    },
+    data: data,
+    headers: headers
   }).then(function(authz){
        for (var i in params) {
           if (params.hasOwnProperty(i)) {
@@ -17166,7 +17079,7 @@ BBClient.ready = function(input, callback, errback){
 
 };
 
-function providers(fhirServiceUrl, callback, errback){
+function providers(fhirServiceUrl, provider, callback, errback){
 
   // Shim for pre-OAuth2 launch parameters
   if (isBypassOAuth()){
@@ -17176,6 +17089,14 @@ function providers(fhirServiceUrl, callback, errback){
     return;
   }
 
+  // Skip conformance statement introspection when overriding provider setting are available
+  if (provider) {
+    provider['url'] = fhirServiceUrl;
+    process.nextTick(function(){
+      callback && callback(provider);
+    });
+    return;
+  }
 
   Adapter.get().http({
     method: "GET",
@@ -17290,7 +17211,7 @@ BBClient.authorize = function(params, errback){
     params.fake_token_response.patient = urlParam("patientId");
   }
 
-  providers(params.server, function(provider){
+  providers(params.server, params.provider, function(provider){
 
     params.provider = provider;
 
@@ -17415,7 +17336,7 @@ function FhirClient(p) {
     };
 
     if (!client.server.serviceUrl || !client.server.serviceUrl.match(/https?:\/\/.+[^\/]$/)) {
-      throw "Must supply a `server` propery whose `serviceUrl` begins with http(s) " + 
+      throw "Must supply a `server` property whose `serviceUrl` begins with http(s) " + 
         "and does NOT include a trailing slash. E.g. `https://fhir.aws.af.cm/fhir`";
     }
     
@@ -17499,6 +17420,7 @@ function FhirClient(p) {
 
     return client;
 }
+
 },{"./adapter":45,"./utils":50,"btoa":38}],48:[function(require,module,exports){
 var client = require('./client');
 var oauth2 = require('./bb-client');
@@ -17603,6 +17525,7 @@ utils.units = {
     if(pq.code == "kg") return pq.value;
     if(pq.code == "g") return pq.value / 1000;
     if(pq.code.match(/lb/)) return pq.value / 2.20462;
+    if(pq.code.match(/oz/)) return pq.value / 35.274;
     throw "Unrecognized weight unit: " + pq.code
   },
   any: function(pq){
